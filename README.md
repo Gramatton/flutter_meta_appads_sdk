@@ -124,8 +124,8 @@ Compare the info box under https://developers.facebook.com/docs/app-events/gdpr-
 
 ### SDK Versions
 
-* **Android**: Facebook SDK 18.1.3
-* **iOS**: FBSDKCoreKit 18.0.1
+* **Android**: Facebook SDK 18.2.3
+* **iOS**: FBSDKCoreKit 18.0.3
 
 ### iOS UIScene lifecycle
 
