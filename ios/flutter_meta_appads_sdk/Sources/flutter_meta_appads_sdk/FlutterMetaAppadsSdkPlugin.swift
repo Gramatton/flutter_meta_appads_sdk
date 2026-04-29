@@ -2,30 +2,97 @@ import FBSDKCoreKit
 import Flutter
 import UIKit
 
-public class FlutterMetaAppadsSdkPlugin: NSObject, FlutterPlugin, FlutterMetaAppadsSdkHostApi {
+public class FlutterMetaAppadsSdkPlugin: NSObject, FlutterPlugin, FlutterSceneLifeCycleDelegate, FlutterMetaAppadsSdkHostApi {
     public static func register(with registrar: FlutterPluginRegistrar) {
         let instance = FlutterMetaAppadsSdkPlugin()
         
         FlutterMetaAppadsSdkHostApiSetup.setUp(binaryMessenger: registrar.messenger(), api: instance)
         
+        // Register for both AppDelegate and SceneDelegate callbacks so the
+        // plugin keeps working on apps that have not yet adopted the
+        // UIScene lifecycle as well as those that have.
         registrar.addApplicationDelegate(instance)
+        registrar.addSceneDelegate(instance)
     }
 
     private var startUpApplication: UIApplication?
     private var startUpURL: URL?
-    private var startUpOptions: [UIApplication.OpenURLOptionsKey: Any]?
+    private var startUpSourceApplication: String?
+    private var startUpAnnotation: Any?
     private var loggingEnabled: Bool = false
+
+    // MARK: - UIApplicationDelegate (legacy, pre-UIScene lifecycle)
 
     public func application(
         _ application: UIApplication,
         open url: URL,
         options: [UIApplication.OpenURLOptionsKey: Any] = [:]
     ) -> Bool {
-        startUpApplication = application
-        startUpURL = url
-        startUpOptions = options
+        captureStartUp(
+            url: url,
+            sourceApplication: options[.sourceApplication] as? String,
+            annotation: options[.annotation]
+        )
 
         return false
+    }
+
+    public func application(
+        _ application: UIApplication,
+        continue userActivity: NSUserActivity,
+        restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+    ) -> Bool {
+        ApplicationDelegate.shared.application(application, continue: userActivity)
+
+        // Don't short-circuit other handlers (e.g. Flutter's deep-link router).
+        return false
+    }
+
+    // MARK: - FlutterSceneLifeCycleDelegate (UIScene lifecycle)
+
+    public func scene(
+        _ scene: UIScene,
+        willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions?
+    ) -> Bool {
+        if let context = connectionOptions?.urlContexts.first {
+            captureStartUp(
+                url: context.url,
+                sourceApplication: context.options.sourceApplication,
+                annotation: context.options.annotation
+            )
+        }
+
+        return false
+    }
+
+    public func scene(
+        _ scene: UIScene,
+        openURLContexts URLContexts: Set<UIOpenURLContext>
+    ) -> Bool {
+        if let context = URLContexts.first {
+            captureStartUp(
+                url: context.url,
+                sourceApplication: context.options.sourceApplication,
+                annotation: context.options.annotation
+            )
+        }
+
+        return false
+    }
+
+    public func scene(_ scene: UIScene, continue userActivity: NSUserActivity) -> Bool {
+        ApplicationDelegate.shared.application(UIApplication.shared, continue: userActivity)
+
+        // Don't short-circuit other handlers (e.g. Flutter's deep-link router).
+        return false
+    }
+
+    private func captureStartUp(url: URL, sourceApplication: String?, annotation: Any?) {
+        startUpApplication = UIApplication.shared
+        startUpURL = url
+        startUpSourceApplication = sourceApplication
+        startUpAnnotation = annotation
     }
 
     // MARK: - FlutterMetaAppadsSdkHostApi Implementation
@@ -94,13 +161,12 @@ public class FlutterMetaAppadsSdkPlugin: NSObject, FlutterPlugin, FlutterMetaApp
         }
 
         if let application = startUpApplication,
-           let url = startUpURL,
-           let options = startUpOptions {
+           let url = startUpURL {
             ApplicationDelegate.shared.application(
                 application,
                 open: url,
-                sourceApplication: options[UIApplication.OpenURLOptionsKey.sourceApplication] as? String,
-                annotation: options[UIApplication.OpenURLOptionsKey.annotation]
+                sourceApplication: startUpSourceApplication,
+                annotation: startUpAnnotation as Any
             )
         } else {
             ApplicationDelegate.shared.initializeSDK()

@@ -1,3 +1,11 @@
+### 2.2.0
+
+* iOS: Adopted Apple's `UIScene` lifecycle ([Flutter migration guide](https://docs.flutter.dev/release/breaking-changes/uiscenedelegate#migration-guide-for-flutter-plugins)).
+  * Plugin now conforms to `FlutterSceneLifeCycleDelegate` and is registered via `addSceneDelegate` in addition to `addApplicationDelegate`, so it works on hosts whether or not they have migrated to `UIScene`.
+  * Captures launch URL info from `scene(_:willConnectTo:options:)` and forwards `scene(_:openURLContexts:)` to the Meta SDK (replacing the legacy `application(_:open:options:)` path on UIScene-based apps).
+  * Forwards Universal Links to the Meta SDK from both `application(_:continue:restorationHandler:)` and `scene(_:continue:)` automatically (no AppDelegate changes required).
+* Bumped minimum Flutter constraint to `>=3.38.0` (required for `FlutterSceneLifeCycleDelegate` / `addSceneDelegate`).
+
 ### 2.1.0+1
 
 * Update readme (thanks @ltOgt)

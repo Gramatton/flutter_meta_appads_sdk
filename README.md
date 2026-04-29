@@ -127,6 +127,11 @@ Compare the info box under https://developers.facebook.com/docs/app-events/gdpr-
 * **Android**: Facebook SDK 18.1.3
 * **iOS**: FBSDKCoreKit 18.0.1
 
+### iOS UIScene lifecycle
+
+Starting with `2.2.0`, the iOS plugin adopts Apple's `UIScene` lifecycle and registers itself as both an application delegate and a scene delegate. No `AppDelegate` or `SceneDelegate` changes are required on your side: the plugin auto-forwards URL openings (custom URL schemes) and Universal Links (`NSUserActivity`) to the Meta SDK on both the legacy `UIApplicationDelegate` path and the new `UISceneDelegate` path.
+
+This requires Flutter `>=3.38.0`. See the [Flutter UISceneDelegate adoption guide](https://docs.flutter.dev/release/breaking-changes/uiscenedelegate) for context.
 
 ### About Meta SDK
 
