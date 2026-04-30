@@ -4,6 +4,7 @@
   * Plugin now conforms to `FlutterSceneLifeCycleDelegate` and is registered via `addSceneDelegate` in addition to `addApplicationDelegate`, so it works on hosts whether or not they have migrated to `UIScene`.
   * Captures launch URL info from `scene(_:willConnectTo:options:)` and forwards `scene(_:openURLContexts:)` to the Meta SDK (replacing the legacy `application(_:open:options:)` path on UIScene-based apps).
   * Forwards Universal Links to the Meta SDK from both `application(_:continue:restorationHandler:)` and `scene(_:continue:)` automatically (no AppDelegate changes required).
+* iOS: URL opens that occur **after** `initSdk()` are now forwarded to `FBSDKCoreKit.ApplicationDelegate` immediately (previously only the launch URL was delivered, so attribution-related custom-scheme opens during a running session were dropped). All `UIOpenURLContext` entries delivered in a single `scene(_:openURLContexts:)` call are now processed (previously only the first was used).
 * Bumped minimum Flutter constraint to `>=3.38.0` (required for `FlutterSceneLifeCycleDelegate` / `addSceneDelegate`).
 * Bumped Meta SDK versions:
   * Android: Facebook SDK 18.1.3 → 18.2.3 (thread-safety fixes in `FetchedAppGateKeepersManager`/`AttributionIdentifiers`, `SecureRandom` replaces `java.util.Random`, deprecated `CookieSyncManager` removed, `Build.VERSION.SDK_INT` guard before AdServices APIs, deep link referrer support). No public API changes.

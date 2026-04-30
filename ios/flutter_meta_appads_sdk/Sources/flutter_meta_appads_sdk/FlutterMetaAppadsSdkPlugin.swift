@@ -20,6 +20,7 @@ public class FlutterMetaAppadsSdkPlugin: NSObject, FlutterPlugin, FlutterSceneLi
     private var startUpSourceApplication: String?
     private var startUpAnnotation: Any?
     private var loggingEnabled: Bool = false
+    private var sdkInitialized: Bool = false
 
     // MARK: - UIApplicationDelegate (legacy, pre-UIScene lifecycle)
 
@@ -28,12 +29,17 @@ public class FlutterMetaAppadsSdkPlugin: NSObject, FlutterPlugin, FlutterSceneLi
         open url: URL,
         options: [UIApplication.OpenURLOptionsKey: Any] = [:]
     ) -> Bool {
-        captureStartUp(
+        let sourceApplication = options[.sourceApplication] as? String
+        let annotation = options[.annotation]
+
+        forwardOpenURL(
+            application: application,
             url: url,
-            sourceApplication: options[.sourceApplication] as? String,
-            annotation: options[.annotation]
+            sourceApplication: sourceApplication,
+            annotation: annotation
         )
 
+        // Don't short-circuit other handlers (e.g. Flutter's deep-link router).
         return false
     }
 
@@ -55,12 +61,8 @@ public class FlutterMetaAppadsSdkPlugin: NSObject, FlutterPlugin, FlutterSceneLi
         willConnectTo session: UISceneSession,
         options connectionOptions: UIScene.ConnectionOptions?
     ) -> Bool {
-        if let context = connectionOptions?.urlContexts.first {
-            captureStartUp(
-                url: context.url,
-                sourceApplication: context.options.sourceApplication,
-                annotation: context.options.annotation
-            )
+        if let contexts = connectionOptions?.urlContexts {
+            forwardURLContexts(contexts)
         }
 
         return false
@@ -70,13 +72,7 @@ public class FlutterMetaAppadsSdkPlugin: NSObject, FlutterPlugin, FlutterSceneLi
         _ scene: UIScene,
         openURLContexts URLContexts: Set<UIOpenURLContext>
     ) -> Bool {
-        if let context = URLContexts.first {
-            captureStartUp(
-                url: context.url,
-                sourceApplication: context.options.sourceApplication,
-                annotation: context.options.annotation
-            )
-        }
+        forwardURLContexts(URLContexts)
 
         return false
     }
@@ -93,6 +89,45 @@ public class FlutterMetaAppadsSdkPlugin: NSObject, FlutterPlugin, FlutterSceneLi
         startUpURL = url
         startUpSourceApplication = sourceApplication
         startUpAnnotation = annotation
+    }
+
+    private func forwardOpenURL(
+        application: UIApplication,
+        url: URL,
+        sourceApplication: String?,
+        annotation: Any?
+    ) {
+        if sdkInitialized {
+            ApplicationDelegate.shared.application(
+                application,
+                open: url,
+                sourceApplication: sourceApplication,
+                annotation: annotation as Any
+            )
+        } else {
+            // Defer to initSdk() so the SDK can record the launch URL once it
+            // is initialized by Dart code.
+            captureStartUp(
+                url: url,
+                sourceApplication: sourceApplication,
+                annotation: annotation
+            )
+        }
+    }
+
+    private func forwardURLContexts(_ contexts: Set<UIOpenURLContext>) {
+        guard !contexts.isEmpty else { return }
+
+        let application = UIApplication.shared
+
+        for context in contexts {
+            forwardOpenURL(
+                application: application,
+                url: context.url,
+                sourceApplication: context.options.sourceApplication,
+                annotation: context.options.annotation
+            )
+        }
     }
 
     // MARK: - FlutterMetaAppadsSdkHostApi Implementation
@@ -171,6 +206,12 @@ public class FlutterMetaAppadsSdkPlugin: NSObject, FlutterPlugin, FlutterSceneLi
         } else {
             ApplicationDelegate.shared.initializeSDK()
         }
+
+        sdkInitialized = true
+        startUpApplication = nil
+        startUpURL = nil
+        startUpSourceApplication = nil
+        startUpAnnotation = nil
 
         if loggingEnabled {
             print("FBSDKLog: SDK Version: \(Settings.shared.sdkVersion)")
